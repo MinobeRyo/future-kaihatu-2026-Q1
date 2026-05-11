@@ -3,6 +3,10 @@
 レシートをスキャンして植物を育てるライフスタイルゲームアプリ。
 購買行動がそのままゲームの栄養になる。
 
+起動方法
+npx expo start --web
+
+
 ## 概要
 
 Google Vision API でレシートを OCR し、Gemini API で品目を分類。
