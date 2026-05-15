@@ -1,13 +1,15 @@
-import { View, Text, ScrollView, StyleSheet, ImageBackground, TouchableOpacity } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, Image, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { PlantDisplay } from './components/PlantDisplay';
 import { StatusBars } from './components/StatusBars';
 import { ItemStock } from './components/ItemStock';
+import { DebugPanel } from './components/DebugPanel';
 import { useGameState } from '../../hooks/useGameState';
 import { useTimeDecay } from '../../hooks/useTimeDecay';
 import type { PlantStage } from '../../types';
 
 const BG_IMAGES: Record<PlantStage, any> = {
+  chiju:    require('../../../assets/backgrounds/森背景.png'),
   seedling: require('../../../assets/backgrounds/森背景.png'),
   sapling:  require('../../../assets/backgrounds/森背景.png'),
   young:    require('../../../assets/backgrounds/森背景.png'),
@@ -16,12 +18,13 @@ const BG_IMAGES: Record<PlantStage, any> = {
 };
 
 export function HomeScreen() {
-  const { plantStatus, buff, items, useItem } = useGameState();
+  const { plantStatus, buff, items, useItem, debugSet } = useGameState();
   useTimeDecay();
 
   return (
     <View style={styles.outerBg}>
       <View style={styles.phone}>
+        <DebugPanel plantStatus={plantStatus} onApply={debugSet} />
         <SafeAreaView style={styles.safeArea}>
           <ScrollView contentContainerStyle={styles.scroll}>
 
@@ -35,21 +38,20 @@ export function HomeScreen() {
               />
             </View>
 
-            {/* 木製フレーム → 背景 → 植物 */}
+            {/* 木製フレーム → 背景（下寄り）→ 植物 */}
             <View style={styles.frameWrapper}>
               <Text style={[styles.leaf, styles.leafTL]}>🍃</Text>
               <Text style={[styles.leaf, styles.leafTR]}>🍃</Text>
               <View style={styles.woodFrame}>
-                <ImageBackground
+                <Image
                   source={BG_IMAGES[plantStatus.stage]}
-                  style={styles.bgInFrame}
+                  style={styles.bgImage}
                   resizeMode="cover"
-                >
-                  <PlantDisplay
-                    stage={plantStatus.stage}
-                    growthValue={plantStatus.growthValue}
-                  />
-                </ImageBackground>
+                />
+                <PlantDisplay
+                  stage={plantStatus.stage}
+                  growthValue={plantStatus.growthValue}
+                />
               </View>
               <Text style={[styles.leaf, styles.leafBL]}>🌿</Text>
               <Text style={[styles.leaf, styles.leafBR]}>🌿</Text>
@@ -153,6 +155,7 @@ const styles = StyleSheet.create({
     position: 'relative',
   },
   woodFrame: {
+    height: 480,
     borderRadius: 20,
     borderWidth: 8,
     borderColor: WOOD,
@@ -162,12 +165,15 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 12,
     elevation: 10,
-  },
-  bgInFrame: {
-    height: 480,
-    width: '100%',
-    alignItems: 'center',
     justifyContent: 'flex-end',
+  },
+  bgImage: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    width: '100%',
+    height: '150%',
   },
 
   leaf: { position: 'absolute', fontSize: 26, zIndex: 2 },
