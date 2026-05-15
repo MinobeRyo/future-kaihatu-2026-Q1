@@ -7,7 +7,8 @@ function calcStage(growth: number, health: number): PlantStage {
   if (growth >= 5000) return 'blooming';
   if (growth >= 3000) return 'young';
   if (growth >= 1500) return 'sapling';
-  return 'seedling';
+  if (growth >= 500)  return 'seedling';
+  return 'chiju';
 }
 
 export function useGameState() {
@@ -15,7 +16,7 @@ export function useGameState() {
     growthValue: 0,
     healthValue: 100,
     mentalValue: 100,
-    stage: 'seedling',
+    stage: 'chiju',
     lastOpenedAt: new Date().toISOString(),
   });
   const [buff, setBuff] = useState<EntertainmentBuff>({ buffValue: 1.0, buffCount: 0 });
@@ -99,5 +100,12 @@ export function useGameState() {
     ]);
   }, [plantStatus]);
 
-  return { plantStatus, buff, items, useItem };
+  function debugSet(patch: Partial<Pick<PlantStatus, 'growthValue' | 'healthValue' | 'mentalValue'>>) {
+    setPlantStatus((prev) => {
+      const next = { ...prev, ...patch };
+      return { ...next, stage: calcStage(next.growthValue, next.healthValue) };
+    });
+  }
+
+  return { plantStatus, buff, items, useItem, debugSet };
 }

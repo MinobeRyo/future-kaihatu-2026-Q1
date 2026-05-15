@@ -1,5 +1,5 @@
 // ゲームステータス
-export type PlantStage = 'seedling' | 'sapling' | 'young' | 'blooming' | 'withered';
+export type PlantStage = 'chiju' | 'seedling' | 'sapling' | 'young' | 'blooming' | 'withered';
 
 export interface PlantStatus {
   growthValue: number;   // 0〜5000+
