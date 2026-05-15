@@ -1,9 +1,11 @@
+import { useState } from 'react';
 import { View, Text, ScrollView, StyleSheet, Image, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { PlantDisplay } from './components/PlantDisplay';
 import { StatusBars } from './components/StatusBars';
 import { ItemStock } from './components/ItemStock';
 import { DebugPanel } from './components/DebugPanel';
+import type { PlantOffsets } from './components/DebugPanel';
 import { useGameState } from '../../hooks/useGameState';
 import { useTimeDecay } from '../../hooks/useTimeDecay';
 import type { PlantStage } from '../../types';
@@ -19,12 +21,18 @@ const BG_IMAGES: Record<PlantStage, any> = {
 
 export function HomeScreen() {
   const { plantStatus, buff, items, useItem, debugSet } = useGameState();
+  const [debugOffsets, setDebugOffsets] = useState<PlantOffsets | null>(null);
   useTimeDecay();
 
   return (
     <View style={styles.outerBg}>
       <View style={styles.phone}>
-        <DebugPanel plantStatus={plantStatus} onApply={debugSet} />
+        <DebugPanel
+          plantStatus={plantStatus}
+          onApply={debugSet}
+          offsets={debugOffsets ?? { base: 0, ground: 0 }}
+          onOffsetChange={(v) => setDebugOffsets(v)}
+        />
         <SafeAreaView style={styles.safeArea}>
           <ScrollView contentContainerStyle={styles.scroll}>
 
@@ -51,6 +59,8 @@ export function HomeScreen() {
                 <PlantDisplay
                   stage={plantStatus.stage}
                   growthValue={plantStatus.growthValue}
+                  debugBase={debugOffsets?.base}
+                  debugGround={debugOffsets?.ground}
                 />
               </View>
               <Text style={[styles.leaf, styles.leafBL]}>🌿</Text>

@@ -1,7 +1,20 @@
 import { View, Text, FlatList, TouchableOpacity, StyleSheet } from 'react-native';
-import type { ItemStock as ItemStockType } from '../../../types';
+import type { ItemStock as ItemStockType, ItemCategory } from '../../../types';
 
 const MAX_SLOTS = 10;
+
+const CATEGORY_EMOJI: Record<ItemCategory, string> = {
+  food_healthy:         '🥦',
+  food_junk:            '🍟',
+  food_other:           '🍱',
+  daily_consumable:     '🧴',
+  daily_stationery:     '✏️',
+  daily_furniture:      '🪑',
+  daily_clothing:       '👕',
+  entertainment_light:  '🎬',
+  entertainment_medium: '🎤',
+  entertainment_heavy:  '🎢',
+};
 
 interface Props {
   items: ItemStockType[];
@@ -25,7 +38,8 @@ export function ItemStock({ items, onUseItem }: Props) {
         horizontal
         renderItem={({ item }) => (
           <TouchableOpacity style={styles.item} onPress={() => onUseItem(item)}>
-            <Text style={styles.itemName} numberOfLines={2}>{item.itemName}</Text>
+            <Text style={styles.itemEmoji}>{CATEGORY_EMOJI[item.category]}</Text>
+            <Text style={styles.itemName} numberOfLines={1}>{item.itemName}</Text>
             <Text style={styles.itemGrowth}>+{item.storedGrowthValue}</Text>
           </TouchableOpacity>
         )}
@@ -51,6 +65,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#C8E6C9',
   },
+  itemEmoji: { fontSize: 24, textAlign: 'center' },
   itemName: { fontSize: 11, color: '#333' },
   itemGrowth: { fontSize: 13, fontWeight: 'bold', color: '#4CAF50', textAlign: 'right' },
   empty: { color: '#aaa', fontSize: 13 },
