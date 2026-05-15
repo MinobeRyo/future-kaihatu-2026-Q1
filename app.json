@@ -1,0 +1,10 @@
+{
+  "expo": {
+    "name": "FutureKaihatu",
+    "slug": "future-kaihatu",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "platforms": ["ios", "android", "web"],
+    "plugins": ["expo-camera"]
+  }
+}
