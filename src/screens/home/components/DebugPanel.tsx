@@ -31,9 +31,10 @@ interface Props {
   onApply: (patch: Partial<Pick<PlantStatus, 'growthValue' | 'healthValue' | 'mentalValue'>>) => void;
   onOffsetChange: (offsets: PlantOffsets | null) => void;
   offsets: PlantOffsets;
+  onAddDummyItems: () => void;
 }
 
-export function DebugPanel({ plantStatus, onApply, onOffsetChange, offsets }: Props) {
+export function DebugPanel({ plantStatus, onApply, onOffsetChange, offsets, onAddDummyItems }: Props) {
   const [visible, setVisible] = useState(false);
   const [growth, setGrowth] = useState(String(plantStatus.growthValue));
   const [health, setHealth] = useState(String(plantStatus.healthValue));
@@ -115,6 +116,10 @@ export function DebugPanel({ plantStatus, onApply, onOffsetChange, offsets }: Pr
               <Text style={styles.label}>ground — 大きくなるにつれ浮く→＋ 現在: {offsets.ground}</Text>
               <TextInput style={styles.input} value={ground} onChangeText={setGround} keyboardType="numeric" placeholder="例: 40" />
 
+              <TouchableOpacity style={styles.dummyBtn} onPress={onAddDummyItems}>
+                <Text style={styles.dummyText}>🎁 ダミーアイテム追加（5種）</Text>
+              </TouchableOpacity>
+
               <View style={styles.btnRow}>
                 <TouchableOpacity style={styles.cancelBtn} onPress={handleCancel}>
                   <Text style={styles.cancelText}>キャンセル</Text>
@@ -186,4 +191,8 @@ const styles = StyleSheet.create({
     flex: 1, padding: 12, borderRadius: 8, backgroundColor: '#4A7F45', alignItems: 'center',
   },
   applyText: { color: '#fff', fontWeight: 'bold' },
+  dummyBtn: {
+    marginTop: 16, padding: 12, borderRadius: 8, backgroundColor: '#E65100', alignItems: 'center',
+  },
+  dummyText: { color: '#fff', fontWeight: 'bold', fontSize: 14 },
 });

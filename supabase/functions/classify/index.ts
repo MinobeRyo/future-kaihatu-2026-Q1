@@ -1,7 +1,21 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 
-const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY')!;
-const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
+const GEMINI_API_KEY = Deno.env.get('gemini_api_key') ?? '';
+const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`;
+
+// ── 起動時チェック ────────────────────────────────────────────
+if (!GEMINI_API_KEY) {
+  console.error('[classify] ⚠️  gemini_api_key が未設定');
+} else {
+  console.log(`[classify] ✅ gemini_api_key: ${GEMINI_API_KEY.slice(0, 8)}...`);
+  fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${GEMINI_API_KEY}`)
+    .then(r => r.json())
+    .then(j => {
+      const names = (j.models ?? []).map((m: any) => m.name).join(', ');
+      console.log('[classify] 利用可能モデル:', names || '取得失敗');
+    })
+    .catch(e => console.error('[classify] モデル一覧取得失敗:', e));
+}
 
 export interface ClassifiedItem {
   name: string;
@@ -37,6 +51,7 @@ JSON以外は返さないでください。
 
 serve(async (req) => {
   const { text } = await req.json() as { text: string };
+  console.log('[classify] 受信 text length:', text?.length ?? 0, '| preview:', text?.slice(0, 80));
 
   const res = await fetch(GEMINI_URL, {
     method: 'POST',
@@ -48,15 +63,18 @@ serve(async (req) => {
   });
 
   const json = await res.json();
+  console.log('[classify] Gemini raw response:', JSON.stringify(json).slice(0, 600));
   const raw = json.candidates?.[0]?.content?.parts?.[0]?.text ?? '{}';
 
   let result: ClassifyResult;
   try {
     result = JSON.parse(raw);
   } catch {
+    console.error('[classify] JSON parse failed. raw:', raw);
     return new Response(JSON.stringify({ error: 'parse_error', raw }), { status: 422 });
   }
 
+  console.log('[classify] result:', JSON.stringify(result));
   return new Response(JSON.stringify(result), {
     headers: { 'Content-Type': 'application/json' },
   });

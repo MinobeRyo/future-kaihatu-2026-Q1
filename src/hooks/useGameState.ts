@@ -71,7 +71,7 @@ export function useGameState() {
     const healthBuff = plantStatus.healthValue >= 100
       ? (plantStatus.healthValue - 100) * 0.005
       : 0;
-    const mentalBuff = (plantStatus.mentalValue / 150) * 0.75 - 0.25;
+    const mentalBuff = plantStatus.mentalValue * 0.005 - 0.5;
     const useTimeMult = Math.min(1 + healthBuff + mentalBuff, 1.5);
     const growthGain = Math.round(item.storedGrowthValue * useTimeMult);
 
@@ -107,5 +107,35 @@ export function useGameState() {
     });
   }
 
-  return { plantStatus, buff, items, useItem, debugSet };
+  const addDummyItems = useCallback(async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    const dummies = [
+      { user_id: user.id, item_name: 'ブロッコリー', category: 'food_healthy',         stored_growth_value: 40, health_effect: 20,  mental_effect: 0  },
+      { user_id: user.id, item_name: 'ポテチ',       category: 'food_junk',             stored_growth_value: 30, health_effect: -20, mental_effect: 0  },
+      { user_id: user.id, item_name: '洗剤',         category: 'daily_consumable',      stored_growth_value: 10, health_effect: 3,   mental_effect: 6  },
+      { user_id: user.id, item_name: '映画チケット', category: 'entertainment_light',   stored_growth_value: 0,  health_effect: -6,  mental_effect: 10 },
+      { user_id: user.id, item_name: 'ソファ',       category: 'daily_furniture',       stored_growth_value: 15, health_effect: 3,   mental_effect: 22 },
+    ];
+
+    const { data } = await supabase.from('item_stock').insert(dummies).select();
+    if (data) {
+      setItems((prev) => [
+        ...prev,
+        ...data.map((d: any) => ({
+          id: d.id,
+          userId: d.user_id,
+          itemName: d.item_name,
+          category: d.category,
+          storedGrowthValue: d.stored_growth_value,
+          healthEffect: d.health_effect,
+          mentalEffect: d.mental_effect,
+          acquiredAt: d.acquired_at,
+        })),
+      ]);
+    }
+  }, []);
+
+  return { plantStatus, buff, items, useItem, debugSet, addDummyItems, reload: loadState };
 }

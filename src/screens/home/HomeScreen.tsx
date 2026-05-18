@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { View, Text, ScrollView, StyleSheet, Image, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useFocusEffect } from '@react-navigation/native';
 import { PlantDisplay } from './components/PlantDisplay';
 import { StatusBars } from './components/StatusBars';
 import { ItemStock } from './components/ItemStock';
@@ -8,6 +9,8 @@ import { DebugPanel } from './components/DebugPanel';
 import type { PlantOffsets } from './components/DebugPanel';
 import { useGameState } from '../../hooks/useGameState';
 import { useTimeDecay } from '../../hooks/useTimeDecay';
+import { useDebugMode } from '../../hooks/useDebugMode';
+import { useWatering } from '../../hooks/useWatering';
 import type { PlantStage } from '../../types';
 
 const BG_IMAGES: Record<PlantStage, any> = {
@@ -20,19 +23,38 @@ const BG_IMAGES: Record<PlantStage, any> = {
 };
 
 export function HomeScreen() {
-  const { plantStatus, buff, items, useItem, debugSet } = useGameState();
+  const { plantStatus, buff, items, useItem, debugSet, addDummyItems, reload } = useGameState();
   const [debugOffsets, setDebugOffsets] = useState<PlantOffsets | null>(null);
+  const { isDebug, recheck } = useDebugMode();
   useTimeDecay();
+
+  const handleHealthUpdate = useCallback((newHealth: number) => {
+    debugSet({ healthValue: newHealth });
+  }, [debugSet]);
+
+  const { canWater, remainingMinutes, water, recheck: recheckWater } = useWatering(
+    plantStatus.healthValue,
+    handleHealthUpdate,
+  );
+
+  useFocusEffect(useCallback(() => {
+    reload();
+    recheck();
+    recheckWater();
+  }, []));
 
   return (
     <View style={styles.outerBg}>
       <View style={styles.phone}>
-        <DebugPanel
-          plantStatus={plantStatus}
-          onApply={debugSet}
-          offsets={debugOffsets ?? { base: 0, ground: 0 }}
-          onOffsetChange={(v) => setDebugOffsets(v)}
-        />
+        {isDebug && (
+          <DebugPanel
+            plantStatus={plantStatus}
+            onApply={debugSet}
+            offsets={debugOffsets ?? { base: 0, ground: 0 }}
+            onOffsetChange={(v) => setDebugOffsets(v)}
+            onAddDummyItems={addDummyItems}
+          />
+        )}
         <SafeAreaView style={styles.safeArea}>
           <ScrollView contentContainerStyle={styles.scroll}>
 
@@ -63,6 +85,23 @@ export function HomeScreen() {
                   debugGround={debugOffsets?.ground}
                 />
               </View>
+
+              {/* 水やりボタン */}
+              <TouchableOpacity
+                style={[styles.waterBtn, !canWater && styles.waterBtnDisabled]}
+                onPress={water}
+                disabled={!canWater}
+              >
+                <Text style={styles.waterEmoji}>💧</Text>
+                {!canWater && remainingMinutes > 0 && (
+                  <Text style={styles.waterCooldown}>
+                    {remainingMinutes >= 60
+                      ? `${Math.floor(remainingMinutes / 60)}h`
+                      : `${remainingMinutes}m`}
+                  </Text>
+                )}
+              </TouchableOpacity>
+
               <Text style={[styles.leaf, styles.leafBL]}>🌿</Text>
               <Text style={[styles.leaf, styles.leafBR]}>🌿</Text>
             </View>
@@ -121,44 +160,6 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
 
-  // 吹き出し
-  bubbleWrapper: {
-    alignItems: 'center',
-    marginHorizontal: 24,
-    marginBottom: 0,
-  },
-  bubble: {
-    backgroundColor: CREAM,
-    borderRadius: 16,
-    borderWidth: 2,
-    borderColor: '#C9A87C',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    shadowColor: WOOD,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  bubbleText: {
-    fontSize: 14,
-    color: '#5C3D1E',
-    fontWeight: '600',
-    textAlign: 'center',
-  },
-  bubbleTail: {
-    width: 0,
-    height: 0,
-    borderLeftWidth: 8,
-    borderRightWidth: 8,
-    borderTopWidth: 10,
-    borderLeftColor: 'transparent',
-    borderRightColor: 'transparent',
-    borderTopColor: '#C9A87C',
-    marginTop: -1,
-  },
-
-  // 木枠
   frameWrapper: {
     marginHorizontal: 12,
     marginVertical: 4,
@@ -191,6 +192,28 @@ const styles = StyleSheet.create({
   leafTR: { top: -12, right: 12, transform: [{ scaleX: -1 }] },
   leafBL: { bottom: -12, left: 12 },
   leafBR: { bottom: -12, right: 12, transform: [{ scaleX: -1 }] },
+
+  // 水やりボタン
+  waterBtn: {
+    position: 'absolute',
+    bottom: 16,
+    right: 20,
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: '#2196F3',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 10,
+    shadowColor: '#0D47A1',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.4,
+    shadowRadius: 4,
+    elevation: 6,
+  },
+  waterBtnDisabled: { backgroundColor: '#90CAF9', opacity: 0.7 },
+  waterEmoji: { fontSize: 22 },
+  waterCooldown: { fontSize: 9, color: '#fff', fontWeight: 'bold', marginTop: 1 },
 
   // ボタン
   btnRow: {
