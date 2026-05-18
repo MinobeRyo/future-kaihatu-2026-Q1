@@ -68,16 +68,20 @@ export interface ReceiptItem {
 }
 
 // OCR / 分類結果
+export interface ScanResultItem {
+  itemName: string;
+  category: ItemCategory;
+  quantity: number;
+  price: number;
+}
+
 export interface ScanResult {
-  receipt: Omit<Receipt, 'id' | 'userId' | 'scannedAt'>;
-  items: Omit<ReceiptItem, 'id' | 'receiptId'>[];
-  statusDelta: {
-    growthDelta: number;
-    healthDelta: number;
-    mentalDelta: number;
-  };
+  duplicate: boolean;
+  receipt: Omit<Receipt, 'id' | 'userId' | 'scannedAt'> | null;
+  items: ScanResultItem[];
   acquiredItem: Omit<ItemStock, 'id' | 'userId' | 'acquiredAt'> | null;
   buffApplied: number;
+  buffCountDelta: number;
 }
 
 // ナビゲーション
