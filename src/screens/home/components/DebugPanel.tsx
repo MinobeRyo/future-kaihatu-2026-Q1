@@ -32,9 +32,11 @@ interface Props {
   onOffsetChange: (offsets: PlantOffsets | null) => void;
   offsets: PlantOffsets;
   onAddDummyItems: () => void;
+  onSkipWaterCooldown: () => void;
+  onSkipMentalDecay: () => void;
 }
 
-export function DebugPanel({ plantStatus, onApply, onOffsetChange, offsets, onAddDummyItems }: Props) {
+export function DebugPanel({ plantStatus, onApply, onOffsetChange, offsets, onAddDummyItems, onSkipWaterCooldown, onSkipMentalDecay }: Props) {
   const [visible, setVisible] = useState(false);
   const [growth, setGrowth] = useState(String(plantStatus.growthValue));
   const [health, setHealth] = useState(String(plantStatus.healthValue));
@@ -120,6 +122,16 @@ export function DebugPanel({ plantStatus, onApply, onOffsetChange, offsets, onAd
                 <Text style={styles.dummyText}>🎁 ダミーアイテム追加（5種）</Text>
               </TouchableOpacity>
 
+              <Text style={styles.sectionTitle}>⏩ 時間スキップ</Text>
+              <View style={styles.btnRow}>
+                <TouchableOpacity style={styles.skipBtn} onPress={onSkipWaterCooldown}>
+                  <Text style={styles.skipText}>💧 水やりリセット</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.skipBtn} onPress={onSkipMentalDecay}>
+                  <Text style={styles.skipText}>🧠 精神値減少発動</Text>
+                </TouchableOpacity>
+              </View>
+
               <View style={styles.btnRow}>
                 <TouchableOpacity style={styles.cancelBtn} onPress={handleCancel}>
                   <Text style={styles.cancelText}>キャンセル</Text>
@@ -139,11 +151,11 @@ export function DebugPanel({ plantStatus, onApply, onOffsetChange, offsets, onAd
 const styles = StyleSheet.create({
   fab: {
     position: 'absolute',
-    top: 12,
+    top: 52,
     right: 12,
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     backgroundColor: 'rgba(0,0,0,0.45)',
     justifyContent: 'center',
     alignItems: 'center',
@@ -195,4 +207,8 @@ const styles = StyleSheet.create({
     marginTop: 16, padding: 12, borderRadius: 8, backgroundColor: '#E65100', alignItems: 'center',
   },
   dummyText: { color: '#fff', fontWeight: 'bold', fontSize: 14 },
+  skipBtn: {
+    flex: 1, padding: 10, borderRadius: 8, backgroundColor: '#5C35A0', alignItems: 'center',
+  },
+  skipText: { color: '#fff', fontWeight: 'bold', fontSize: 12 },
 });

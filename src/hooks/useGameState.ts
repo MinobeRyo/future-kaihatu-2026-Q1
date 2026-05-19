@@ -63,6 +63,7 @@ export function useGameState() {
     }
   }
 
+
   const useItem = useCallback(async (item: ItemStock) => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
@@ -100,9 +101,25 @@ export function useGameState() {
     ]);
   }, [plantStatus]);
 
-  function debugSet(patch: Partial<Pick<PlantStatus, 'growthValue' | 'healthValue' | 'mentalValue'>>) {
+  async function debugSet(patch: Partial<Pick<PlantStatus, 'growthValue' | 'healthValue' | 'mentalValue'>>) {
+    const next = { ...plantStatus, ...patch };
+    const newStatus = { ...next, stage: calcStage(next.growthValue, next.healthValue) };
+    setPlantStatus(newStatus);
+
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    await supabase.from('plant_status').insert({
+      user_id:      user.id,
+      growth_value: newStatus.growthValue,
+      health_value: newStatus.healthValue,
+      mental_value: newStatus.mentalValue,
+      trigger_type: 'debug',
+    });
+  }
+
+  function setHealthState(newHealth: number) {
     setPlantStatus((prev) => {
-      const next = { ...prev, ...patch };
+      const next = { ...prev, healthValue: newHealth };
       return { ...next, stage: calcStage(next.growthValue, next.healthValue) };
     });
   }
@@ -137,5 +154,5 @@ export function useGameState() {
     }
   }, []);
 
-  return { plantStatus, buff, items, useItem, debugSet, addDummyItems, reload: loadState };
+  return { plantStatus, buff, items, useItem, debugSet, setHealthState, addDummyItems, reload: loadState };
 }

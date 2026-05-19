@@ -1,34 +1,36 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useState, useEffect, useCallback } from 'react';
 
-const KEY = 'debug_mode';
 const CODE = 'ryom';
 
+// モジュールレベル共有（アプリ起動中は維持）
+let cachedIsDebug = false;
+const listeners = new Set<(val: boolean) => void>();
+
+function broadcast(val: boolean) {
+  cachedIsDebug = val;
+  listeners.forEach((l) => l(val));
+}
+
 export function useDebugMode() {
-  const [isDebug, setIsDebug] = useState(false);
+  const [isDebug, setIsDebug] = useState(cachedIsDebug);
 
   useEffect(() => {
-    AsyncStorage.getItem(KEY).then((val) => setIsDebug(val === 'true'));
+    const listener = (val: boolean) => setIsDebug(val);
+    listeners.add(listener);
+    return () => { listeners.delete(listener); };
   }, []);
 
-  const tryEnable = useCallback(async (code: string) => {
-    if (code === CODE) {
-      await AsyncStorage.setItem(KEY, 'true');
-      setIsDebug(true);
+  const tryEnable = useCallback((code: string) => {
+    if (code.trim() === CODE) {
+      broadcast(true);
       return true;
     }
     return false;
   }, []);
 
-  const disable = useCallback(async () => {
-    await AsyncStorage.removeItem(KEY);
-    setIsDebug(false);
+  const disable = useCallback(() => {
+    broadcast(false);
   }, []);
 
-  const recheck = useCallback(async () => {
-    const val = await AsyncStorage.getItem(KEY);
-    setIsDebug(val === 'true');
-  }, []);
-
-  return { isDebug, tryEnable, disable, recheck };
+  return { isDebug, tryEnable, disable };
 }
