@@ -108,31 +108,28 @@ serve(async (req) => {
     return new Response(JSON.stringify({ error: 'ocr_failed' }), { status: 422, headers: CORS });
   }
 
-  // 3. 重複チェック
-  const { data: dup } = await supabase
-    .from('receipts')
-    .select('id')
-    .eq('user_id', user.id)
-    .eq('store_name', classified.storeName)
-    .eq('receipt_date', classified.receiptDate)
-    .eq('total_amount', classified.totalAmount)
-    .maybeSingle();
+  // 3. 重複チェック・バフ取得・ストック数を並列取得
+  const [dupRes, buffRes, stockRes] = await Promise.all([
+    supabase.from('receipts').select('id')
+      .eq('user_id', user.id)
+      .eq('store_name', classified.storeName)
+      .eq('receipt_date', classified.receiptDate)
+      .eq('total_amount', classified.totalAmount)
+      .maybeSingle(),
+    supabase.from('entertainment_buff').select('*').eq('user_id', user.id).single(),
+    supabase.from('item_stock').select('*', { count: 'exact', head: true }).eq('user_id', user.id),
+  ]);
 
-  if (dup) {
+  if (dupRes.data) {
     return new Response(JSON.stringify({ duplicate: true }), { headers: CORS });
   }
 
-  // 4. 娯楽バフ取得
-  const { data: buffRow } = await supabase
-    .from('entertainment_buff')
-    .select('*')
-    .eq('user_id', user.id)
-    .single();
-
+  const buffRow = buffRes.data;
   let currentBuffValue: number = buffRow?.buff_value ?? 1.0;
   let currentBuffCount: number = buffRow?.buff_count ?? 0;
+  const canAcquireItem = (stockRes.count ?? 0) < 10;
 
-  // 5. アイテム効果値計算（スキャン時に保存する値）
+  // 4. アイテム効果値計算（スキャン時に保存する値）
   let growthDelta = 0;
   let isEntertainment = false;
   let entertainmentCategory = '';
@@ -173,15 +170,7 @@ serve(async (req) => {
   // 7. アイテム保存成長値（娯楽バフ適用済み）
   const finalGrowth = Math.round(growthDelta * appliedBuff);
 
-  // 8. ストック空き確認
-  const { count: stockCount } = await supabase
-    .from('item_stock')
-    .select('*', { count: 'exact', head: true })
-    .eq('user_id', user.id);
-
-  const canAcquireItem = (stockCount ?? 0) < 10;
-
-  // 9. レシート・品目を保存
+  // 8. レシート・品目を保存
   const ratios = calcRatios(classified.items);
 
   const { data: receipt } = await supabase.from('receipts').insert({
@@ -198,9 +187,10 @@ serve(async (req) => {
     entertainment_ratio:  ratios.entertainment,
   }).select().single();
 
+  // receipt_itemsはレスポンスに不要なので待たずに流す
   if (receipt) {
-    await supabase.from('receipt_items').insert(
-      classified.items.map((item) => ({
+    supabase.from('receipt_items').insert(
+      classified.items.map((item: any) => ({
         receipt_id: receipt.id,
         item_name:  item.name,
         category:   item.category,
@@ -210,59 +200,55 @@ serve(async (req) => {
     );
   }
 
-  // 10. 娯楽バフ更新
-  await supabase.from('entertainment_buff').upsert({
-    user_id:    user.id,
-    buff_value: currentBuffValue,
-    buff_count: currentBuffCount,
-  });
-
-  // 11. アイテム生成（ストック満杯でなければ全レシートで生成）
-  let acquiredItem = null;
+  // 10 & 11. 娯楽バフ更新 + アイテム生成を並列実行
+  let itemPayload: Record<string, unknown> | null = null;
   if (canAcquireItem && receipt && classified.items.length > 0) {
-    // 価格合計が最大のカテゴリを支配カテゴリとする
     const priceByCategory: Record<string, number> = {};
     for (const item of classified.items) {
       priceByCategory[item.category] = (priceByCategory[item.category] ?? 0) + (item.price ?? 0);
     }
     const dominantCategory = Object.entries(priceByCategory).sort((a, b) => b[1] - a[1])[0][0];
-    const dominantName = classified.items.find((i) => i.category === dominantCategory)?.name ?? classified.items[0].name;
-
-    // 価格比率（0〜1）：支配カテゴリの価格が全体に占める割合
+    const dominantName = classified.items.find((i: any) => i.category === dominantCategory)?.name ?? classified.items[0].name;
     const totalPrice = Object.values(priceByCategory).reduce((s, v) => s + v, 0) || 1;
     const dominanceRatio = (priceByCategory[dominantCategory] ?? 0) / totalPrice;
-
-    // 支配カテゴリの効果値（比率が高いほど上限寄り）
     const domEffect = EFFECTS[dominantCategory] ?? EFFECTS.food_other;
     let healthEff = randWeighted(domEffect.health[0], domEffect.health[1], dominanceRatio);
     let mentalEff = randWeighted(domEffect.mental[0], domEffect.mental[1], dominanceRatio);
-
-    // ジャンク品が混在する場合は別途加算（支配カテゴリがジャンク以外の場合のみ）
     const junkPrice = priceByCategory['food_junk'] ?? 0;
     const junkRatio = junkPrice / totalPrice;
     if (junkRatio > 0 && dominantCategory !== 'food_junk') {
       healthEff += randWeighted(EFFECTS.food_junk.health[0], EFFECTS.food_junk.health[1], junkRatio);
       mentalEff += randWeighted(EFFECTS.food_junk.mental[0], EFFECTS.food_junk.mental[1], junkRatio);
     }
-
-    const { data: item } = await supabase.from('item_stock').insert({
+    itemPayload = {
       user_id:             user.id,
       item_name:           dominantName,
       category:            dominantCategory,
       stored_growth_value: finalGrowth,
       health_effect:       healthEff,
       mental_effect:       mentalEff,
-    }).select().single();
-    if (item) {
-      acquiredItem = {
-        itemName:          item.item_name,
-        category:          item.category,
-        storedGrowthValue: item.stored_growth_value,
-        healthEffect:      item.health_effect,
-        mentalEffect:      item.mental_effect,
-      };
-    }
+    };
   }
+
+  const [, itemRes] = await Promise.all([
+    supabase.from('entertainment_buff').upsert({
+      user_id:    user.id,
+      buff_value: currentBuffValue,
+      buff_count: currentBuffCount,
+    }),
+    itemPayload
+      ? supabase.from('item_stock').insert(itemPayload).select().single()
+      : Promise.resolve({ data: null }),
+  ]);
+
+  const rawItem = (itemRes as any).data;
+  const acquiredItem = rawItem ? {
+    itemName:          rawItem.item_name,
+    category:          rawItem.category,
+    storedGrowthValue: rawItem.stored_growth_value,
+    healthEffect:      rawItem.health_effect,
+    mentalEffect:      rawItem.mental_effect,
+  } : null;
 
   const responseItems = classified.items.map((i) => ({
     itemName:  i.name,

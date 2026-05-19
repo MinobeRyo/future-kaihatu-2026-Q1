@@ -8,12 +8,25 @@ import { supabase } from '../../lib/supabase';
 import type { ScanResult } from '../../types';
 
 const STEPS = [
-  { emoji: '📸', label: '写真を処理中...' },
-  { emoji: '🔍', label: '文字を読み取り中...' },
-  { emoji: '🤖', label: '品目を分類中...' },
-  { emoji: '💾', label: 'データを保存中...' },
+  '写真を処理中...',
+  '文字を読み取り中...',
+  '品目を分類中...',
+  'データを保存中...',
 ];
-const STEP_DURATIONS = [1500, 3000, 4000, 99999];
+const STEP_DURATIONS = [1500, 3000, 4000];
+
+function Spinner() {
+  const rotation = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    Animated.loop(
+      Animated.timing(rotation, { toValue: 1, duration: 900, useNativeDriver: true }),
+    ).start();
+  }, []);
+  const rotate = rotation.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] });
+  return (
+    <Animated.View style={[styles.spinnerRing, { transform: [{ rotate }] }]} />
+  );
+}
 
 export function ScanScreen() {
   const [permission, requestPermission] = useCameraPermissions();
@@ -23,23 +36,29 @@ export function ScanScreen() {
   const [modalVisible, setModalVisible] = useState(false);
   const [thumbnailUri, setThumbnailUri] = useState<string | null>(null);
   const [stepIndex, setStepIndex] = useState(0);
+  const thumbScale  = useRef(new Animated.Value(0)).current;
   const thumbOpacity = useRef(new Animated.Value(0)).current;
-  const thumbTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const stepTimers = useRef<ReturnType<typeof setTimeout>[]>([]);
-  const cameraRef = useRef<CameraView>(null);
-  const isFocused = useIsFocused();
+  const thumbTimer  = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const stepTimers  = useRef<ReturnType<typeof setTimeout>[]>([]);
+  const cancelled   = useRef(false);
+  const cameraRef   = useRef<CameraView>(null);
+  const isFocused   = useIsFocused();
 
-  // サムネイルフェードイン（スキャン中は消えない）
+  // サムネイルをポップイン
   useEffect(() => {
     if (!thumbnailUri) return;
+    thumbScale.setValue(0.6);
     thumbOpacity.setValue(0);
-    Animated.timing(thumbOpacity, { toValue: 1, duration: 200, useNativeDriver: true }).start();
+    Animated.parallel([
+      Animated.spring(thumbScale,   { toValue: 1, useNativeDriver: true }),
+      Animated.timing(thumbOpacity, { toValue: 1, duration: 200, useNativeDriver: true }),
+    ]).start();
   }, [thumbnailUri]);
 
   function startStepTimers() {
     setStepIndex(0);
     let elapsed = 0;
-    stepTimers.current = STEP_DURATIONS.slice(0, -1).map((dur, i) => {
+    stepTimers.current = STEP_DURATIONS.map((dur, i) => {
       elapsed += dur;
       return setTimeout(() => setStepIndex(i + 1), elapsed);
     });
@@ -50,19 +69,26 @@ export function ScanScreen() {
     stepTimers.current = [];
   }
 
-  function hideThumbnail() {
+  function hideThumbnailAfter(ms: number) {
     if (thumbTimer.current) clearTimeout(thumbTimer.current);
     thumbTimer.current = setTimeout(() => {
-      Animated.timing(thumbOpacity, { toValue: 0, duration: 400, useNativeDriver: true })
-        .start(() => setThumbnailUri(null));
-    }, 2000);
+      Animated.parallel([
+        Animated.timing(thumbOpacity, { toValue: 0, duration: 300, useNativeDriver: true }),
+        Animated.timing(thumbScale,   { toValue: 0.8, duration: 300, useNativeDriver: true }),
+      ]).start(() => setThumbnailUri(null));
+    }, ms);
   }
 
+  // 画面離脱時にキャンセルフラグ＋タイマー掃除
   useFocusEffect(useCallback(() => {
-    setReady(false);
-    setScanning(false);
-    setThumbnailUri(null);
-    clearStepTimers();
+    cancelled.current = false;
+    return () => {
+      cancelled.current = true;
+      clearStepTimers();
+      if (thumbTimer.current) clearTimeout(thumbTimer.current);
+      setScanning(false);
+      setThumbnailUri(null);
+    };
   }, []));
 
   if (!permission) return <View style={styles.container} />;
@@ -84,6 +110,7 @@ export function ScanScreen() {
     startStepTimers();
     try {
       const photo = await cameraRef.current.takePictureAsync({ quality: 0.8, base64: true, shutterSound: false });
+      if (cancelled.current) return;
       if (!photo?.base64) throw new Error('no_base64');
 
       setThumbnailUri(photo.uri);
@@ -91,6 +118,7 @@ export function ScanScreen() {
       const { data, error } = await supabase.functions.invoke('receipt-scan', {
         body: { image: photo.base64 },
       });
+      if (cancelled.current) return;
 
       if (error || !data) {
         Alert.alert('読み取れませんでした', '明るい場所でレシート全体が枠内に収まるよう再撮影してください。');
@@ -106,15 +134,17 @@ export function ScanScreen() {
       setResult(scanResult);
       setModalVisible(true);
     } catch {
-      Alert.alert('読み取れませんでした', '通信エラーが発生しました。電波の良い場所で再度お試しください。');
+      if (!cancelled.current) {
+        Alert.alert('読み取れませんでした', '通信エラーが発生しました。電波の良い場所で再度お試しください。');
+      }
     } finally {
-      clearStepTimers();
-      setScanning(false);
-      hideThumbnail();
+      if (!cancelled.current) {
+        clearStepTimers();
+        setScanning(false);
+        hideThumbnailAfter(2500);
+      }
     }
   }
-
-  const step = STEPS[Math.min(stepIndex, STEPS.length - 1)];
 
   return (
     <View style={styles.container}>
@@ -128,26 +158,7 @@ export function ScanScreen() {
         />
       )}
 
-      {/* ローディングオーバーレイ */}
-      {scanning && (
-        <View style={styles.loadingOverlay}>
-          {thumbnailUri && (
-            <Animated.View style={[styles.loadingThumb, { opacity: thumbOpacity }]}>
-              <Image source={{ uri: thumbnailUri }} style={styles.loadingThumbImage} />
-            </Animated.View>
-          )}
-          <View style={styles.loadingCard}>
-            <Text style={styles.loadingEmoji}>{step.emoji}</Text>
-            <Text style={styles.loadingLabel}>{step.label}</Text>
-            <View style={styles.dots}>
-              {STEPS.map((_, i) => (
-                <View key={i} style={[styles.dot, i <= stepIndex && styles.dotActive]} />
-              ))}
-            </View>
-          </View>
-        </View>
-      )}
-
+      {/* 通常UI */}
       {!scanning && (
         <View style={styles.overlay}>
           <Text style={styles.hint}>レシートを枠内に収めて撮影</Text>
@@ -162,9 +173,33 @@ export function ScanScreen() {
         </View>
       )}
 
-      {/* 完了後サムネイル（右下） */}
+      {/* ローディングオーバーレイ */}
+      {scanning && (
+        <View style={styles.loadingOverlay}>
+          {thumbnailUri && (
+            <Animated.View style={[
+              styles.loadingThumb,
+              { opacity: thumbOpacity, transform: [{ scale: thumbScale }] },
+            ]}>
+              <Image source={{ uri: thumbnailUri }} style={styles.loadingThumbImage} />
+            </Animated.View>
+          )}
+          <Spinner />
+          <Text style={styles.loadingLabel}>{STEPS[Math.min(stepIndex, STEPS.length - 1)]}</Text>
+          <View style={styles.dots}>
+            {STEPS.map((_, i) => (
+              <View key={i} style={[styles.dot, i <= stepIndex && styles.dotActive]} />
+            ))}
+          </View>
+        </View>
+      )}
+
+      {/* 完了後サムネイル（iOSカメラ風・右下） */}
       {!scanning && thumbnailUri && (
-        <Animated.View style={[styles.thumbnail, { opacity: thumbOpacity }]}>
+        <Animated.View style={[
+          styles.thumbnail,
+          { opacity: thumbOpacity, transform: [{ scale: thumbScale }] },
+        ]}>
           <Image source={{ uri: thumbnailUri }} style={styles.thumbnailImage} />
         </Animated.View>
       )}
@@ -218,53 +253,59 @@ const styles = StyleSheet.create({
   disabled:    { opacity: 0.4 },
   captureText: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
 
-  // ローディング
+  // スピナー
+  spinnerRing: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    borderWidth: 4,
+    borderColor: 'rgba(255,255,255,0.2)',
+    borderTopColor: '#fff',
+  },
+
+  // ローディング画面
   loadingOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.75)',
+    backgroundColor: 'rgba(0,0,0,0.78)',
     justifyContent: 'center',
     alignItems: 'center',
-    gap: 24,
+    gap: 20,
   },
   loadingThumb: {
-    width: 120,
-    height: 160,
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: '#fff',
+    width: 110,
+    height: 146,
+    borderRadius: 14,
+    borderWidth: 2.5,
+    borderColor: 'rgba(255,255,255,0.85)',
     overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.5,
+    shadowRadius: 8,
+    elevation: 8,
   },
   loadingThumbImage: { width: '100%', height: '100%' },
-  loadingCard: {
-    backgroundColor: 'rgba(255,255,255,0.12)',
-    borderRadius: 16,
-    paddingVertical: 20,
-    paddingHorizontal: 36,
-    alignItems: 'center',
-    gap: 8,
-  },
-  loadingEmoji: { fontSize: 36 },
-  loadingLabel: { fontSize: 16, color: '#fff', fontWeight: '600' },
-  dots: { flexDirection: 'row', gap: 6, marginTop: 4 },
-  dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: 'rgba(255,255,255,0.3)' },
+  loadingLabel: { fontSize: 15, color: '#fff', fontWeight: '500', letterSpacing: 0.3 },
+  dots: { flexDirection: 'row', gap: 6 },
+  dot: { width: 7, height: 7, borderRadius: 3.5, backgroundColor: 'rgba(255,255,255,0.25)' },
   dotActive: { backgroundColor: '#fff' },
 
-  // 完了後サムネイル
+  // 完了後サムネイル（右下）
   thumbnail: {
     position: 'absolute',
-    bottom: 64,
+    bottom: 72,
     right: 20,
-    width: 64,
-    height: 84,
-    borderRadius: 8,
+    width: 58,
+    height: 76,
+    borderRadius: 10,
     borderWidth: 2,
     borderColor: '#fff',
     overflow: 'hidden',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.4,
-    shadowRadius: 4,
-    elevation: 6,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.45,
+    shadowRadius: 6,
+    elevation: 7,
   },
   thumbnailImage: { width: '100%', height: '100%' },
 

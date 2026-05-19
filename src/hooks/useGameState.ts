@@ -21,6 +21,7 @@ export function useGameState() {
   });
   const [buff, setBuff] = useState<EntertainmentBuff>({ buffValue: 1.0, buffCount: 0 });
   const [items, setItems] = useState<ItemStock[]>([]);
+  const [plantName, setPlantName] = useState<string>('');
 
   useEffect(() => {
     loadState();
@@ -30,20 +31,26 @@ export function useGameState() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
-    const [statusRes, buffRes, itemsRes] = await Promise.all([
+    const [statusRes, buffRes, itemsRes, profileRes] = await Promise.all([
       supabase.from('plant_status').select('*').eq('user_id', user.id).order('changed_at', { ascending: false }).limit(1).single(),
       supabase.from('entertainment_buff').select('*').eq('user_id', user.id).single(),
       supabase.from('item_stock').select('*').eq('user_id', user.id).order('acquired_at', { ascending: true }),
+      supabase.from('profiles').select('plant_name').eq('user_id', user.id).single(),
     ]);
 
     if (statusRes.data) {
       const d = statusRes.data;
-      setPlantStatus({
-        growthValue: d.growth_value,
-        healthValue: d.health_value,
-        mentalValue: d.mental_value,
-        stage: calcStage(d.growth_value, d.health_value),
-        lastOpenedAt: d.changed_at,
+      setPlantStatus((prev) => {
+        // watering updates React state optimistically before DB write completes;
+        // take the higher health value to avoid overwriting a just-applied watering
+        const health = Math.max(prev.healthValue, d.health_value);
+        return {
+          growthValue: d.growth_value,
+          healthValue: health,
+          mentalValue: d.mental_value,
+          stage: calcStage(d.growth_value, health),
+          lastOpenedAt: d.changed_at,
+        };
       });
     }
     if (buffRes.data) {
@@ -60,6 +67,9 @@ export function useGameState() {
         mentalEffect: d.mental_effect,
         acquiredAt: d.acquired_at,
       })));
+    }
+    if (profileRes.data?.plant_name) {
+      setPlantName(profileRes.data.plant_name);
     }
   }
 
@@ -154,5 +164,5 @@ export function useGameState() {
     }
   }, []);
 
-  return { plantStatus, buff, items, useItem, debugSet, setHealthState, addDummyItems, reload: loadState };
+  return { plantStatus, plantName, buff, items, useItem, debugSet, setHealthState, addDummyItems, reload: loadState };
 }

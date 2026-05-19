@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { View, Text, ScrollView, StyleSheet } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, TouchableOpacity } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { SpendingChart } from './components/SpendingChart';
 import { PersonaCard } from './components/PersonaCard';
 import { MonthlyBarChart } from './components/MonthlyBarChart';
@@ -30,6 +31,7 @@ function fmt(n: number) {
 }
 
 export function AnalysisScreen() {
+  const [tab, setTab] = useState<'overview' | 'spending'>('overview');
   const [monthly, setMonthly] = useState<MonthlyData | null>(null);
   const [monthlyTotals, setMonthlyTotals] = useState<{ label: string; total: number }[]>([]);
   const [dailyTotals, setDailyTotals] = useState<{ day: number; total: number }[]>([]);
@@ -113,44 +115,81 @@ export function AnalysisScreen() {
     : null;
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <Text style={styles.heading}>分析</Text>
-
-      {/* 今月の合計 */}
-      <View style={styles.totalCard}>
-        <Text style={styles.totalLabel}>今月の合計使用金額</Text>
-        <Text style={styles.totalAmount}>{monthly ? fmt(Math.round(monthly.total)) : '—'}</Text>
+    <SafeAreaView style={styles.container}>
+      {/* タブ */}
+      <View style={styles.tabBar}>
+        <TouchableOpacity
+          style={[styles.tab, tab === 'overview' && styles.tabActive]}
+          onPress={() => setTab('overview')}
+        >
+          <Text style={[styles.tabText, tab === 'overview' && styles.tabTextActive]}>概要</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.tab, tab === 'spending' && styles.tabActive]}
+          onPress={() => setTab('spending')}
+        >
+          <Text style={[styles.tabText, tab === 'spending' && styles.tabTextActive]}>支出分析</Text>
+        </TouchableOpacity>
       </View>
 
-      {/* 月別推移 */}
-      <View style={styles.card}>
-        <MonthlyBarChart data={monthlyTotals} />
-      </View>
-
-      {/* 日別推移 */}
-      {dailyTotals.length >= 2 && (
-        <View style={styles.card}>
-          <DailyLineChart data={dailyTotals} />
-        </View>
-      )}
-
-      {/* カテゴリ内訳 */}
-      <View style={styles.card}>
-        <SpendingChart
-          data={monthly ?? { foodHealthy: 0, foodJunk: 0, foodOther: 0, dailyGoods: 0, entertainment: 0 }}
-        />
-      </View>
-
-      {/* ペルソナ */}
-      {ratios && <PersonaCard ratios={ratios} />}
-    </ScrollView>
+      <ScrollView contentContainerStyle={styles.content}>
+        {tab === 'overview' ? (
+          <>
+            <View style={styles.totalCard}>
+              <Text style={styles.totalLabel}>今月の合計使用金額</Text>
+              <Text style={styles.totalAmount}>{monthly ? fmt(Math.round(monthly.total)) : '—'}</Text>
+            </View>
+            {ratios ? <PersonaCard ratios={ratios} /> : (
+              <View style={styles.emptyCard}>
+                <Text style={styles.emptyText}>レシートをスキャンするとペルソナが表示されます</Text>
+              </View>
+            )}
+          </>
+        ) : (
+          <>
+            <View style={styles.card}>
+              <MonthlyBarChart data={monthlyTotals} />
+            </View>
+            {dailyTotals.length >= 2 && (
+              <View style={styles.card}>
+                <DailyLineChart data={dailyTotals} />
+              </View>
+            )}
+            <View style={styles.card}>
+              <SpendingChart
+                data={monthly ?? { foodHealthy: 0, foodJunk: 0, foodOther: 0, dailyGoods: 0, entertainment: 0 }}
+              />
+            </View>
+          </>
+        )}
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F5EDD8' },
   content: { padding: 16, paddingBottom: 40 },
-  heading: { fontSize: 24, fontWeight: 'bold', marginBottom: 16, color: '#3D1F0A' },
+
+  tabBar: {
+    flexDirection: 'row',
+    backgroundColor: '#EDE0C8',
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    gap: 8,
+  },
+  tab: {
+    flex: 1,
+    paddingVertical: 10,
+    alignItems: 'center',
+    borderRadius: 10,
+    backgroundColor: 'transparent',
+  },
+  tabActive: {
+    backgroundColor: '#7B4F2E',
+  },
+  tabText: { fontSize: 14, fontWeight: '600', color: '#7B4F2E' },
+  tabTextActive: { color: '#fff' },
 
   totalCard: {
     backgroundColor: '#7B4F2E',
@@ -170,4 +209,13 @@ const styles = StyleSheet.create({
     padding: 16,
     marginBottom: 12,
   },
+  emptyCard: {
+    backgroundColor: 'rgba(255,251,240,0.95)',
+    borderRadius: 16,
+    borderWidth: 1.5,
+    borderColor: '#C9A87C',
+    padding: 24,
+    alignItems: 'center',
+  },
+  emptyText: { fontSize: 13, color: '#aaa', textAlign: 'center', lineHeight: 20 },
 });
