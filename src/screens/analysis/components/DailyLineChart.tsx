@@ -5,7 +5,7 @@ interface Props {
   data: { day: number; total: number }[];
 }
 
-const W = Dimensions.get('window').width - 32;
+const W = Dimensions.get('window').width - 72;
 
 export function DailyLineChart({ data }: Props) {
   if (data.length < 2) return null;

@@ -5,7 +5,7 @@ interface Props {
   data: { label: string; total: number }[];
 }
 
-const W = Dimensions.get('window').width - 32;
+const W = Dimensions.get('window').width - 72;
 
 export function MonthlyBarChart({ data }: Props) {
   if (data.length === 0) return null;

@@ -4,18 +4,24 @@ import type { ItemStock as ItemStockType, ItemCategory } from '../../../types';
 
 const MAX_SLOTS = 10;
 
-const CATEGORY_EMOJI: Record<ItemCategory, string> = {
-  food_healthy:         '🥦',
-  food_junk:            '🍟',
-  food_other:           '🍱',
-  daily_consumable:     '🧴',
-  daily_stationery:     '✏️',
-  daily_furniture:      '🪑',
-  daily_clothing:       '👕',
-  entertainment_light:  '🎬',
-  entertainment_medium: '🎤',
-  entertainment_heavy:  '🎢',
+const CATEGORY_EMOJIS: Record<ItemCategory, string[]> = {
+  food_healthy:         ['🥦', '🥩', '🐟'],
+  food_junk:            ['🍟', '🍩', '🍕'],
+  food_other:           ['🍱', '🥤', '🍜'],
+  daily_consumable:     ['🧴', '🧼', '🪥'],
+  daily_stationery:     ['✏️', '📓', '📐'],
+  daily_furniture:      ['🪑', '🛋️', '🪴'],
+  daily_clothing:       ['👕', '👟', '🧢'],
+  entertainment_light:  ['🎬', '📚', '☕'],
+  entertainment_medium: ['🎤', '🕹️', '🎳'],
+  entertainment_heavy:  ['🎢', '⚽', '🎡'],
 };
+
+function pickEmoji(category: ItemCategory, name: string): string {
+  const list = CATEGORY_EMOJIS[category];
+  const hash = name.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0);
+  return list[hash % list.length];
+}
 
 const CATEGORY_LABEL: Record<ItemCategory, string> = {
   food_healthy:         '食品（健康系）',
@@ -62,7 +68,7 @@ export function ItemStock({ items, onUseItem }: Props) {
         horizontal
         renderItem={({ item }) => (
           <TouchableOpacity style={styles.item} onPress={() => setSelected(item)}>
-            <Text style={styles.itemEmoji}>{CATEGORY_EMOJI[item.category]}</Text>
+            <Text style={styles.itemEmoji}>{pickEmoji(item.category, item.itemName)}</Text>
             <Text style={styles.itemName} numberOfLines={1}>{item.itemName}</Text>
             <Text style={styles.itemGrowth}>+{item.storedGrowthValue}</Text>
           </TouchableOpacity>
@@ -75,7 +81,7 @@ export function ItemStock({ items, onUseItem }: Props) {
           <TouchableOpacity style={styles.modal} activeOpacity={1}>
             {selected && (
               <>
-                <Text style={styles.modalEmoji}>{CATEGORY_EMOJI[selected.category]}</Text>
+                <Text style={styles.modalEmoji}>{pickEmoji(selected.category, selected.itemName)}</Text>
                 <Text style={styles.modalName}>{selected.itemName}</Text>
                 <Text style={styles.modalCategory}>{CATEGORY_LABEL[selected.category]}</Text>
 

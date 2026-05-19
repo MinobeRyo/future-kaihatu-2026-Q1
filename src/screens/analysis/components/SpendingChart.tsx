@@ -38,7 +38,7 @@ export function SpendingChart({ data }: Props) {
       <Text style={styles.title}>今月の支出比率</Text>
       <PieChart
         data={chartData}
-        width={Dimensions.get('window').width - 32}
+        width={Dimensions.get('window').width - 72}
         height={180}
         chartConfig={{ color: () => '#000' }}
         accessor="population"

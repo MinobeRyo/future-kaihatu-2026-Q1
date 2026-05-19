@@ -23,7 +23,7 @@ const BG_IMAGES: Record<PlantStage, any> = {
 };
 
 export function HomeScreen() {
-  const { plantStatus, buff, items, useItem, debugSet, setHealthState, addDummyItems, reload } = useGameState();
+  const { plantStatus, plantName, buff, items, useItem, debugSet, setHealthState, addDummyItems, reload } = useGameState();
   const [debugOffsets, setDebugOffsets] = useState<PlantOffsets | null>(null);
   const [statusModalVisible, setStatusModalVisible] = useState(false);
   const { isDebug } = useDebugMode();
@@ -75,6 +75,7 @@ export function HomeScreen() {
                 healthValue={plantStatus.healthValue}
                 mentalValue={plantStatus.mentalValue}
                 buff={buff}
+                plantName={plantName}
               />
             </View>
 

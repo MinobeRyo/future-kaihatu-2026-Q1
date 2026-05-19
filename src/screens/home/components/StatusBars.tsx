@@ -6,6 +6,7 @@ interface Props {
   healthValue: number;
   mentalValue: number;
   buff: EntertainmentBuff;
+  plantName?: string;
 }
 
 function Bar({
@@ -29,16 +30,19 @@ function Bar({
   );
 }
 
-export function StatusBars({ growthValue, healthValue, mentalValue, buff }: Props) {
+export function StatusBars({ growthValue, healthValue, mentalValue, buff, plantName }: Props) {
   const healthBuff = healthValue >= 100 ? (healthValue - 100) * 0.005 : 0;
   const mentalBuff = mentalValue * 0.005 - 0.5;
   const useTimeMult = Math.min(1 + healthBuff + mentalBuff, 1.5);
 
-  const healthLabel = healthBuff > 0 ? `+${Math.round(healthBuff * 100)}%` : '±0%';
-  const mentalLabel = `×${(1 + mentalBuff).toFixed(2)}`;
+  const healthPct = Math.round(healthBuff * 100);
+  const mentalPct = Math.round(mentalBuff * 100);
+  const healthLabel = healthPct > 0 ? `+${healthPct}%` : '±0%';
+  const mentalLabel = mentalPct >= 0 ? `+${mentalPct}%` : `${mentalPct}%`;
 
   return (
     <View style={styles.container}>
+      {plantName ? <Text style={styles.plantName}>{plantName}</Text> : null}
       <View style={styles.growthRow}>
         <Text style={styles.growth}>成長値: {growthValue}</Text>
         <Text style={styles.totalBuff}>×{useTimeMult.toFixed(2)}</Text>
@@ -68,4 +72,5 @@ const styles = StyleSheet.create({
   buffTag: { width: 44, fontSize: 11, textAlign: 'right', fontWeight: '600' },
   buffPos: { color: '#4CAF50' },
   buffNeg: { color: '#F44336' },
+  plantName: { fontSize: 13, fontWeight: '600', color: '#7B4F2E', marginBottom: 4, letterSpacing: 0.5 },
 });
