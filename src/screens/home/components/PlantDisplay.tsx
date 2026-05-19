@@ -2,12 +2,12 @@ import { View, Image, StyleSheet } from 'react-native';
 import type { PlantStage } from '../../../types';
 
 const PLANT_IMAGES: Record<PlantStage, any> = {
-  chiju:    require('../../../../assets/plants/稚樹_transparent.png'),
-  seedling: require('../../../../assets/plants/苗木_transparent.png'),
-  sapling:  require('../../../../assets/plants/幼木_transparent.png'),
-  young:    require('../../../../assets/plants/若木_transparent.png'),
-  blooming: require('../../../../assets/plants/成木_transparent.png'),
-  withered: require('../../../../assets/plants/枯れ木_transparent.png'),
+  chiju:    require('../../../../assets/plants/稚樹_transparent.webp'),
+  seedling: require('../../../../assets/plants/苗木_transparent.webp'),
+  sapling:  require('../../../../assets/plants/幼木_transparent.webp'),
+  young:    require('../../../../assets/plants/若木_transparent.webp'),
+  blooming: require('../../../../assets/plants/成木_transparent.webp'),
+  withered: require('../../../../assets/plants/枯れ木_transparent.webp'),
 };
 
 interface Props {

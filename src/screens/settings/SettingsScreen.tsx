@@ -33,11 +33,10 @@ export function SettingsScreen() {
     ]);
   }
 
-  async function handleDevCode() {
-    const ok = await tryEnable(devCode);
+  function handleDevCode() {
+    const ok = tryEnable(devCode);
     setDevCode('');
-    if (ok) Alert.alert('開発者モード有効');
-    else Alert.alert('コードが違います');
+    Alert.alert(ok ? '🛠 開発者モード有効' : 'コードが違います');
   }
 
   async function handleSignOut() {

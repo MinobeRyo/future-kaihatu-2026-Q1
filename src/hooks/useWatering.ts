@@ -1,41 +1,57 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 
-const KEY = 'last_watered_at';
-const COOLDOWN_HOURS = 6;
+const COOLDOWN_MS = 6 * 60 * 60 * 1000;
 const HEALTH_RESTORE = 50;
+
+let lastWateredAt: number | null = null;
+let initialized = false;
 
 export function useWatering(
   currentHealth: number,
   onHealthUpdate: (newHealth: number) => void,
 ) {
-  const [lastWateredAt, setLastWateredAt] = useState<number | null>(null);
-  const [checked, setChecked] = useState(false);
+  const [lastWatered, setLastWatered] = useState<number | null>(lastWateredAt);
 
-  const recheck = useCallback(async () => {
-    const val = await AsyncStorage.getItem(KEY);
-    setLastWateredAt(val ? Number(val) : null);
-    setChecked(true);
+  useEffect(() => {
+    if (initialized) {
+      setLastWatered(lastWateredAt);
+      return;
+    }
+    (async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) { initialized = true; return; }
+      const { data } = await supabase
+        .from('plant_status')
+        .select('changed_at')
+        .eq('user_id', user.id)
+        .eq('trigger_type', 'watering')
+        .order('changed_at', { ascending: false })
+        .limit(1)
+        .single();
+      if (data) {
+        const ts = new Date(data.changed_at).getTime();
+        lastWateredAt = ts;
+        setLastWatered(ts);
+      }
+      initialized = true;
+    })();
   }, []);
 
-  const canWater = checked && (
-    lastWateredAt === null ||
-    Date.now() - lastWateredAt >= COOLDOWN_HOURS * 60 * 60 * 1000
-  );
+  const canWater = lastWatered === null || Date.now() - lastWatered >= COOLDOWN_MS;
 
-  const remainingMinutes = lastWateredAt
-    ? Math.max(0, Math.ceil((COOLDOWN_HOURS * 60 * 60 * 1000 - (Date.now() - lastWateredAt)) / 60000))
+  const remainingMinutes = lastWatered
+    ? Math.max(0, Math.ceil((COOLDOWN_MS - (Date.now() - lastWatered)) / 60000))
     : 0;
 
   const water = useCallback(async () => {
     if (!canWater) return;
 
-    const newHealth = Math.min(150, currentHealth + HEALTH_RESTORE);
     const now = Date.now();
+    lastWateredAt = now;
+    setLastWatered(now);
 
-    await AsyncStorage.setItem(KEY, String(now));
-    setLastWateredAt(now);
+    const newHealth = Math.min(150, currentHealth + HEALTH_RESTORE);
     onHealthUpdate(newHealth);
 
     const { data: { user } } = await supabase.auth.getUser();
@@ -60,5 +76,14 @@ export function useWatering(
     }
   }, [canWater, currentHealth, onHealthUpdate]);
 
-  return { canWater, remainingMinutes, water, recheck };
+  const recheck = useCallback(() => {
+    setLastWatered(lastWateredAt);
+  }, []);
+
+  const resetCooldown = useCallback(() => {
+    lastWateredAt = null;
+    setLastWatered(null);
+  }, []);
+
+  return { canWater, remainingMinutes, water, recheck, resetCooldown };
 }

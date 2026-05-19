@@ -1,5 +1,5 @@
-import { useState, useCallback } from 'react';
-import { View, Text, ScrollView, StyleSheet, Image, TouchableOpacity } from 'react-native';
+import { useState, useCallback, useRef } from 'react';
+import { View, Text, ScrollView, StyleSheet, Image, TouchableOpacity, Modal } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import { PlantDisplay } from './components/PlantDisplay';
@@ -14,49 +14,59 @@ import { useWatering } from '../../hooks/useWatering';
 import type { PlantStage } from '../../types';
 
 const BG_IMAGES: Record<PlantStage, any> = {
-  chiju:    require('../../../assets/backgrounds/森背景.png'),
-  seedling: require('../../../assets/backgrounds/森背景.png'),
-  sapling:  require('../../../assets/backgrounds/森背景.png'),
-  young:    require('../../../assets/backgrounds/森背景.png'),
-  blooming: require('../../../assets/backgrounds/桜背景.png'),
-  withered: require('../../../assets/backgrounds/枯れ木背景１.png'),
+  chiju:    require('../../../assets/backgrounds/森背景.webp'),
+  seedling: require('../../../assets/backgrounds/森背景.webp'),
+  sapling:  require('../../../assets/backgrounds/森背景.webp'),
+  young:    require('../../../assets/backgrounds/森背景.webp'),
+  blooming: require('../../../assets/backgrounds/桜背景.webp'),
+  withered: require('../../../assets/backgrounds/枯れ木背景１.webp'),
 };
 
 export function HomeScreen() {
-  const { plantStatus, buff, items, useItem, debugSet, addDummyItems, reload } = useGameState();
+  const { plantStatus, buff, items, useItem, debugSet, setHealthState, addDummyItems, reload } = useGameState();
   const [debugOffsets, setDebugOffsets] = useState<PlantOffsets | null>(null);
-  const { isDebug, recheck } = useDebugMode();
+  const [statusModalVisible, setStatusModalVisible] = useState(false);
+  const { isDebug } = useDebugMode();
+  const scrollRef = useRef<ScrollView>(null);
   useTimeDecay();
 
   const handleHealthUpdate = useCallback((newHealth: number) => {
-    debugSet({ healthValue: newHealth });
-  }, [debugSet]);
+    setHealthState(newHealth);
+  }, [setHealthState]);
 
-  const { canWater, remainingMinutes, water, recheck: recheckWater } = useWatering(
+  const { canWater, remainingMinutes, water, recheck: recheckWater, resetCooldown } = useWatering(
     plantStatus.healthValue,
     handleHealthUpdate,
   );
 
   useFocusEffect(useCallback(() => {
     reload();
-    recheck();
     recheckWater();
   }, []));
+
+  const handleSkipWaterCooldown = useCallback(() => {
+    resetCooldown();
+  }, [resetCooldown]);
+
+  const handleSkipMentalDecay = useCallback(() => {
+    debugSet({ mentalValue: Math.max(0, plantStatus.mentalValue - 12) });
+  }, [debugSet, plantStatus.mentalValue]);
+
+  const healthBuffPct = plantStatus.healthValue >= 100
+    ? Math.round((plantStatus.healthValue - 100) * 0.5)
+    : 0;
+  const mentalMult = Math.round((plantStatus.mentalValue * 0.005 - 0.5) * 100);
+  const useTimeMult = Math.min(
+    1 + Math.max(0, (plantStatus.healthValue - 100) * 0.005)
+      + Math.max(0, plantStatus.mentalValue * 0.005 - 0.5),
+    1.5,
+  );
 
   return (
     <View style={styles.outerBg}>
       <View style={styles.phone}>
-        {isDebug && (
-          <DebugPanel
-            plantStatus={plantStatus}
-            onApply={debugSet}
-            offsets={debugOffsets ?? { base: 0, ground: 0 }}
-            onOffsetChange={(v) => setDebugOffsets(v)}
-            onAddDummyItems={addDummyItems}
-          />
-        )}
         <SafeAreaView style={styles.safeArea}>
-          <ScrollView contentContainerStyle={styles.scroll}>
+          <ScrollView ref={scrollRef} contentContainerStyle={styles.scroll}>
 
             {/* ステータスカード */}
             <View style={styles.card}>
@@ -108,10 +118,16 @@ export function HomeScreen() {
 
             {/* アクションボタン */}
             <View style={styles.btnRow}>
-              <TouchableOpacity style={styles.btn} onPress={() => {}}>
+              <TouchableOpacity
+                style={styles.btn}
+                onPress={() => scrollRef.current?.scrollToEnd({ animated: true })}
+              >
                 <Text style={styles.btnText}>🎒 アイテム使用</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={[styles.btn, styles.btnSecondary]} onPress={() => {}}>
+              <TouchableOpacity
+                style={[styles.btn, styles.btnSecondary]}
+                onPress={() => setStatusModalVisible(true)}
+              >
                 <Text style={styles.btnSecondaryText}>📊 ステータス詳細</Text>
               </TouchableOpacity>
             </View>
@@ -123,6 +139,77 @@ export function HomeScreen() {
 
           </ScrollView>
         </SafeAreaView>
+        {/* ステータス詳細モーダル */}
+        <Modal visible={statusModalVisible} transparent animationType="fade">
+          <TouchableOpacity
+            style={styles.modalOverlay}
+            activeOpacity={1}
+            onPress={() => setStatusModalVisible(false)}
+          >
+            <TouchableOpacity style={styles.statusModal} activeOpacity={1}>
+              <Text style={styles.modalTitle}>ステータス詳細</Text>
+
+              <View style={styles.statusSection}>
+                <Text style={styles.statusLabel}>🌱 成長値</Text>
+                <Text style={styles.statusValue}>{plantStatus.growthValue}</Text>
+              </View>
+
+              <View style={styles.statusSection}>
+                <Text style={styles.statusLabel}>❤️ 健康値</Text>
+                <Text style={styles.statusValue}>{plantStatus.healthValue} / 150</Text>
+                <Text style={styles.statusSub}>
+                  {plantStatus.healthValue >= 100
+                    ? `成長バフ +${healthBuffPct}%`
+                    : plantStatus.healthValue <= 50
+                    ? '枯れ木状態（成長停止）'
+                    : '影響なし'}
+                </Text>
+              </View>
+
+              <View style={styles.statusSection}>
+                <Text style={styles.statusLabel}>🧠 精神値</Text>
+                <Text style={styles.statusValue}>{plantStatus.mentalValue} / 150</Text>
+                <Text style={styles.statusSub}>
+                  成長倍率 {mentalMult >= 0 ? '+' : ''}{mentalMult}%
+                </Text>
+              </View>
+
+              <View style={styles.statusSection}>
+                <Text style={styles.statusLabel}>🎁 アイテム使用時倍率</Text>
+                <Text style={styles.statusValue}>×{useTimeMult.toFixed(2)}</Text>
+                <Text style={styles.statusSub}>健康・精神が高いほど強力</Text>
+              </View>
+
+              {buff.buffCount > 0 && (
+                <View style={styles.statusSection}>
+                  <Text style={styles.statusLabel}>🎭 娯楽バフ</Text>
+                  <Text style={styles.statusValue}>×{buff.buffValue.toFixed(2)}（残{buff.buffCount}回）</Text>
+                </View>
+              )}
+
+              <TouchableOpacity
+                style={styles.modalCloseBtn}
+                onPress={() => setStatusModalVisible(false)}
+              >
+                <Text style={styles.modalCloseBtnText}>閉じる</Text>
+              </TouchableOpacity>
+            </TouchableOpacity>
+          </TouchableOpacity>
+        </Modal>
+
+        {isDebug && (
+          <View style={StyleSheet.absoluteFillObject} pointerEvents="box-none">
+            <DebugPanel
+              plantStatus={plantStatus}
+              onApply={debugSet}
+              offsets={debugOffsets ?? { base: 0, ground: 0 }}
+              onOffsetChange={(v) => setDebugOffsets(v)}
+              onAddDummyItems={addDummyItems}
+              onSkipWaterCooldown={handleSkipWaterCooldown}
+              onSkipMentalDecay={handleSkipMentalDecay}
+            />
+          </View>
+        )}
       </View>
     </View>
   );
@@ -242,4 +329,43 @@ const styles = StyleSheet.create({
     borderColor: WOOD,
   },
   btnSecondaryText: { color: WOOD, fontWeight: 'bold', fontSize: 13 },
+
+  // ステータス詳細モーダル
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  statusModal: {
+    width: 300,
+    backgroundColor: CREAM,
+    borderRadius: 20,
+    borderWidth: 2,
+    borderColor: '#C9A87C',
+    padding: 24,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: WOOD,
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  statusSection: {
+    borderBottomWidth: 1,
+    borderBottomColor: '#E8DCC8',
+    paddingVertical: 10,
+  },
+  statusLabel: { fontSize: 13, color: '#888', marginBottom: 2 },
+  statusValue: { fontSize: 20, fontWeight: 'bold', color: WOOD },
+  statusSub: { fontSize: 11, color: '#999', marginTop: 2 },
+  modalCloseBtn: {
+    marginTop: 20,
+    backgroundColor: WOOD,
+    borderRadius: 12,
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  modalCloseBtnText: { color: '#fff', fontWeight: 'bold', fontSize: 15 },
 });
