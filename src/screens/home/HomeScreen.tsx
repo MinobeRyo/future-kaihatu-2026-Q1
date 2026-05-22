@@ -199,17 +199,15 @@ export function HomeScreen() {
         </Modal>
 
         {isDebug && (
-          <View style={StyleSheet.absoluteFillObject} pointerEvents="box-none">
-            <DebugPanel
-              plantStatus={plantStatus}
-              onApply={debugSet}
-              offsets={debugOffsets ?? { base: 0, ground: 0 }}
-              onOffsetChange={(v) => setDebugOffsets(v)}
-              onAddDummyItems={addDummyItems}
-              onSkipWaterCooldown={handleSkipWaterCooldown}
-              onSkipMentalDecay={handleSkipMentalDecay}
-            />
-          </View>
+          <DebugPanel
+            plantStatus={plantStatus}
+            onApply={debugSet}
+            offsets={debugOffsets ?? { base: 0, ground: 0 }}
+            onOffsetChange={(v) => setDebugOffsets(v)}
+            onAddDummyItems={addDummyItems}
+            onSkipWaterCooldown={handleSkipWaterCooldown}
+            onSkipMentalDecay={handleSkipMentalDecay}
+          />
         )}
       </View>
     </View>

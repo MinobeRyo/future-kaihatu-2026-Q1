@@ -1,8 +1,9 @@
 import { useState, useEffect, useCallback } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const CODE = 'ryom';
+const STORAGE_KEY = 'debug_mode';
 
-// モジュールレベル共有（アプリ起動中は維持）
 let cachedIsDebug = false;
 const listeners = new Set<(val: boolean) => void>();
 
@@ -15,6 +16,12 @@ export function useDebugMode() {
   const [isDebug, setIsDebug] = useState(cachedIsDebug);
 
   useEffect(() => {
+    AsyncStorage.getItem(STORAGE_KEY).then((val) => {
+      if (val === 'true') broadcast(true);
+    });
+  }, []);
+
+  useEffect(() => {
     const listener = (val: boolean) => setIsDebug(val);
     listeners.add(listener);
     return () => { listeners.delete(listener); };
@@ -22,6 +29,7 @@ export function useDebugMode() {
 
   const tryEnable = useCallback((code: string) => {
     if (code.trim() === CODE) {
+      AsyncStorage.setItem(STORAGE_KEY, 'true');
       broadcast(true);
       return true;
     }
@@ -29,6 +37,7 @@ export function useDebugMode() {
   }, []);
 
   const disable = useCallback(() => {
+    AsyncStorage.removeItem(STORAGE_KEY);
     broadcast(false);
   }, []);
 
