@@ -27,7 +27,7 @@ export function LoginScreen({ navigation }: Props) {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Future Kaihatu</Text>
+      <Text style={styles.title}>Receiplant</Text>
       <TextInput
         style={styles.input}
         placeholder="メールアドレス"

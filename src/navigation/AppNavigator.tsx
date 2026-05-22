@@ -62,7 +62,7 @@ function MainTabs() {
 export function AppNavigator() {
   return (
     <NavigationContainer
-      documentTitle={{ formatter: () => 'Future Kaihatu' }}
+      documentTitle={{ formatter: () => 'Receiplant' }}
     >
       <Stack.Navigator screenOptions={{ headerShown: false, contentStyle: { width: '100%' } }}>
         <Stack.Screen name="Login" component={LoginScreen} />

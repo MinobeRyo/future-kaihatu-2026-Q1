@@ -6,7 +6,8 @@
     "start": "expo start",
     "start:prod": "NODE_ENV=production expo start --tunnel",
     "android": "expo start --android",
-    "ios": "expo start --ios"
+    "ios": "expo start --ios",
+    "build:web": "bash scripts/build-web.sh"
   },
   "dependencies": {
     "@expo/metro-runtime": "~6.1.2",
