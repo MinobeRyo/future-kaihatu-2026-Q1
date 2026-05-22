@@ -1,10 +1,37 @@
 {
   "expo": {
-    "name": "FutureKaihatu",
+    "name": "Receiplant",
     "slug": "future-kaihatu",
     "version": "1.0.0",
     "orientation": "portrait",
-    "platforms": ["ios", "android", "web"],
-    "plugins": ["expo-camera"]
+    "platforms": [
+      "ios",
+      "android",
+      "web"
+    ],
+    "plugins": [
+      "expo-camera"
+    ],
+    "web": {
+      "baseUrl": "/Receiplant"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "d0392209-ab5b-416e-8407-ead5bb060db4"
+      }
+    },
+    "android": {
+      "package": "com.ryom.receiplant",
+      "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO"
+      ]
+    },
+    "ios": {
+      "bundleIdentifier": "com.ryom.receiplant",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
+    }
   }
 }

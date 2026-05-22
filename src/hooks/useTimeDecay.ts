@@ -2,8 +2,8 @@ import { useEffect } from 'react';
 import { AppState } from 'react-native';
 import { supabase } from '../lib/supabase';
 
-// 仕様書: 精神値は24時間で-12（アプリを開いたときに前回開いた時間から計算）
-const MENTAL_DECAY_PER_HOUR = 12 / 24;
+// 仕様書: 精神値は24時間で-24（アプリを開いたときに前回開いた時間から計算）
+const MENTAL_DECAY_PER_HOUR = 24 / 24;
 
 export function useTimeDecay() {
   useEffect(() => {

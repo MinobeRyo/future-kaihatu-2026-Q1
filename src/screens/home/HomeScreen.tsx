@@ -49,7 +49,7 @@ export function HomeScreen() {
   }, [resetCooldown]);
 
   const handleSkipMentalDecay = useCallback(() => {
-    debugSet({ mentalValue: Math.max(0, plantStatus.mentalValue - 12) });
+    debugSet({ mentalValue: Math.max(0, plantStatus.mentalValue - 24) });
   }, [debugSet, plantStatus.mentalValue]);
 
   const healthBuffPct = plantStatus.healthValue >= 100
