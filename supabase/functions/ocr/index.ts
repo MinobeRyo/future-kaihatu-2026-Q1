@@ -1,6 +1,6 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 
-const VISION_API_KEY = Deno.env.get('google_vision_api_key') ?? '';
+const VISION_API_KEY = Deno.env.get('GOOGLE_VISION_API_KEY') ?? '';
 const VISION_URL = `https://vision.googleapis.com/v1/images:annotate?key=${VISION_API_KEY}`;
 
 // ── 起動時チェック ────────────────────────────────────────────
